@@ -3,7 +3,7 @@
 
 # # <center>Time Series Analysis on Pune precipitation data from 1965 to 2002.</center>
 
-# In[35]:
+# In[8]:
 
 
 import numpy as np
@@ -30,21 +30,21 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-# In[36]:
+# In[73]:
 
 
 #filename = 'pune_1965_to_2002.csv'
 #STORAGE_FOLDER = 'output/'
 
 
-# In[37]:
+# In[78]:
 
 
 def preprocess_data(filename):
     rainfall_data_matrix = pd.read_csv(filename, delimiter='\t')
     rainfall_data_matrix.set_index('Year', inplace=True)
     rainfall_data_matrix = rainfall_data_matrix.transpose()
-    dates = pd.date_range(start='1965-01', freq='MS', periods=len(rainfall_data_matrix.columns)*12)
+    dates = pd.date_range(start='1901-01', freq='MS', periods=len(rainfall_data_matrix.columns)*12)
     
     rainfall_data_matrix_np = rainfall_data_matrix.transpose().as_matrix()
     shape = rainfall_data_matrix_np.shape
@@ -53,8 +53,8 @@ def preprocess_data(filename):
     rainfall_data = pd.DataFrame({'Precipitation': rainfall_data_matrix_np[:,0]})
     rainfall_data.set_index(dates, inplace=True)
 
-    test_rainfall_data = rainfall_data.ix['1995': '2002']
-    rainfall_data = rainfall_data.ix[: '1994']
+    test_rainfall_data = rainfall_data.ix['1998': '2002']
+    rainfall_data = rainfall_data.ix[: '1998']
     rainfall_data = rainfall_data.round(5)
     
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -63,16 +63,16 @@ def preprocess_data(filename):
     return rainfall_data, test_rainfall_data, scaler
 
 
-# In[80]:
+# In[72]:
 
 
-#FILENAME = 'pune_1965_to_2002.csv'
-#rainfall_data, test_rainfall_data, scaler = preprocess_data(FILENAME)
+# FILENAME = 'pune_1965_to_2002.csv'
+# rainfall_data, test_rainfall_data, scaler = preprocess_data(FILENAME)
 
 
 # ## <center> Artificial Neural Networks </center>
 
-# In[39]:
+# In[12]:
 
 
 from sklearn.metrics import mean_squared_error
@@ -88,7 +88,7 @@ def root_mean_squared_error(y_true, y_pred):
     return rmse
 
 
-# In[40]:
+# In[13]:
 
 
 def calculate_performance(y_true, y_pred):
@@ -99,21 +99,21 @@ def calculate_performance(y_true, y_pred):
     return round(mse, 3), round(mae, 3), round(mape, 3), round(rmse, 3)
 
 
-# In[41]:
+# In[14]:
 
 
 def plot_keras_model(model, show_shapes=True, show_layer_names=True):
     return SVG(model_to_dot(model, show_shapes=show_shapes, show_layer_names=show_layer_names).create(prog='dot',format='svg'))
 
 
-# In[42]:
+# In[15]:
 
 
 def get_combinations(parameters):
     return list(itertools.product(*parameters))
 
 
-# In[43]:
+# In[16]:
 
 
 def create_NN(input_nodes, hidden_nodes, output_nodes):
@@ -124,7 +124,7 @@ def create_NN(input_nodes, hidden_nodes, output_nodes):
     return model
 
 
-# In[44]:
+# In[17]:
 
 
 def train_model(model, X_train, y_train, epochs, batch_size):
@@ -132,7 +132,7 @@ def train_model(model, X_train, y_train, epochs, batch_size):
     return model
 
 
-# In[45]:
+# In[18]:
 
 
 def reshape_arrays(X_train, y_train):
@@ -141,7 +141,7 @@ def reshape_arrays(X_train, y_train):
     return X_train, y_train
 
 
-# In[46]:
+# In[19]:
 
 
 def preprocess_FNN(data, look_back):
@@ -157,7 +157,7 @@ def preprocess_FNN(data, look_back):
     return X_train, y_train, input_seq_for_test
 
 
-# In[47]:
+# In[20]:
 
 
 def forecast_FNN(model, input_sequence, future_steps):
@@ -171,7 +171,7 @@ def forecast_FNN(model, input_sequence, future_steps):
     return forecasted_values
 
 
-# In[48]:
+# In[21]:
 
 
 def FNN(data, look_back, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler):
@@ -190,7 +190,7 @@ def FNN(data, look_back, hidden_nodes, output_nodes, epochs, batch_size, future_
     return model_FNN, forecasted_values_FNN
 
 
-# In[49]:
+# In[22]:
 
 
 def get_accuracies_FNN(rainfall_data, test_rainfall_data, parameters, scaler):
@@ -227,7 +227,7 @@ def get_accuracies_FNN(rainfall_data, test_rainfall_data, parameters, scaler):
     return information_FNN_df
 
 
-# In[50]:
+# In[23]:
 
 
 def preprocess_TLNN(data, time_lagged_points):
@@ -243,7 +243,7 @@ def preprocess_TLNN(data, time_lagged_points):
     return X_train, y_train, input_seq_for_test
 
 
-# In[51]:
+# In[24]:
 
 
 def forecast_TLNN(model, time_lagged_points, last_sequence, future_steps):
@@ -259,7 +259,7 @@ def forecast_TLNN(model, time_lagged_points, last_sequence, future_steps):
     return forecasted_values
 
 
-# In[52]:
+# In[25]:
 
 
 def TLNN(data, time_lagged_points, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler):
@@ -277,7 +277,7 @@ def TLNN(data, time_lagged_points, hidden_nodes, output_nodes, epochs, batch_siz
     return model_TLNN, forecasted_values_TLNN
 
 
-# In[53]:
+# In[26]:
 
 
 def get_accuracies_TLNN(rainfall_data, test_rainfall_data, parameters, scaler):
@@ -314,7 +314,7 @@ def get_accuracies_TLNN(rainfall_data, test_rainfall_data, parameters, scaler):
     return information_TLNN_df
 
 
-# In[54]:
+# In[27]:
 
 
 def preprocess_SANN(data, seasonal_period):
@@ -330,7 +330,7 @@ def preprocess_SANN(data, seasonal_period):
     return X_train, y_train, input_seq_for_test
 
 
-# In[55]:
+# In[28]:
 
 
 def forecast_SANN(model, input_sequence, seasonal_period, future_steps):
@@ -343,7 +343,7 @@ def forecast_SANN(model, input_sequence, seasonal_period, future_steps):
     return forecasted_values[:future_steps]
 
 
-# In[56]:
+# In[29]:
 
 
 def SANN(data, seasonal_period, hidden_nodes, epochs, batch_size, future_steps, scaler):
@@ -362,7 +362,7 @@ def SANN(data, seasonal_period, hidden_nodes, epochs, batch_size, future_steps, 
     return model_SANN, forecasted_values_SANN
 
 
-# In[57]:
+# In[30]:
 
 
 def get_accuracies_SANN(rainfall_data, test_rainfall_data, parameters, scaler):
@@ -398,7 +398,7 @@ def get_accuracies_SANN(rainfall_data, test_rainfall_data, parameters, scaler):
     return information_SANN_df
 
 
-# In[58]:
+# In[31]:
 
 
 def create_LSTM(input_nodes, hidden_nodes, output_nodes):
@@ -409,7 +409,7 @@ def create_LSTM(input_nodes, hidden_nodes, output_nodes):
     return model
 
 
-# In[59]:
+# In[32]:
 
 
 def preprocess_LSTM(data, look_back):
@@ -425,7 +425,7 @@ def preprocess_LSTM(data, look_back):
     return X_train, y_train, input_seq_for_test
 
 
-# In[60]:
+# In[33]:
 
 
 def forecast_LSTM(model, input_sequence, future_steps):
@@ -439,7 +439,7 @@ def forecast_LSTM(model, input_sequence, future_steps):
     return forecasted_values
 
 
-# In[61]:
+# In[34]:
 
 
 def Long_Short_Term_Memory(data, look_back, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler):
@@ -458,7 +458,7 @@ def Long_Short_Term_Memory(data, look_back, hidden_nodes, output_nodes, epochs, 
     return model_LSTM, forecasted_values_LSTM
 
 
-# In[62]:
+# In[35]:
 
 
 def get_accuracies_LSTM(rainfall_data, test_rainfall_data, parameters, scaler):
@@ -495,7 +495,7 @@ def get_accuracies_LSTM(rainfall_data, test_rainfall_data, parameters, scaler):
     return information_LSTM_df
 
 
-# In[63]:
+# In[47]:
 
 
 def analyze_results(data_frame, test_rainfall_data, name, STORAGE_FOLDER, flag=False):
@@ -561,6 +561,21 @@ def analyze_results(data_frame, test_rainfall_data, name, STORAGE_FOLDER, flag=F
     data_frame.to_csv(STORAGE_FOLDER + name + '_information.csv')
     optimized_params.to_csv(STORAGE_FOLDER + name + '_optimized_values.csv')
     
+    # Actual and forecasted values
+    errors = test_rainfall_data.Precipitation - forecast_values
+    actual_forecast = pd.DataFrame({'Actual': test_rainfall_data.Precipitation, 'Forecasted': forecast_values, 
+                                    'Errors': errors})
+    actual_forecast.to_csv(STORAGE_FOLDER + name + '_actual_and_forecasted.csv')
+    
+    plt.figure(figsize=(10,5))
+    plt.plot(actual_forecast.drop(columns=['Actual', 'Forecasted']), color='blue', label='Error: Actual - Forecasted')
+    plt.xlabel('Year')
+    plt.ylabel('Error')
+    plt.legend(loc='best')
+    plt.title(name + ' - Error: Actual - Forecasted')
+    plt.savefig(STORAGE_FOLDER + name + '_error_plot'  + '.png')
+    
+    
     plt.figure(figsize=(10,5))
     plt.plot(y_true, color='green', label='Actual values')
     plt.plot(forecast_values, color='red', label='Forecasted values')
@@ -577,7 +592,7 @@ def analyze_results(data_frame, test_rainfall_data, name, STORAGE_FOLDER, flag=F
     return optimized_params
 
 
-# In[64]:
+# In[48]:
 
 
 def best_of_all(list_of_methods):
@@ -602,7 +617,7 @@ def best_of_all(list_of_methods):
     return index, name, RMSE_info
 
 
-# In[69]:
+# In[49]:
 
 
 def compare_ANN_methods(rainfall_data, test_rainfall_data, scaler, parameters_FNN, parameters_TLNN, 
@@ -627,30 +642,35 @@ def compare_ANN_methods(rainfall_data, test_rainfall_data, scaler, parameters_FN
     return RMSE_info
 
 
-# In[70]:
+# In[69]:
 
 
-def save_RMSE_info(RMSE_info):
-    ax = RMSE_info.plot(kind='bar', figsize=(10,5), rot=0, title='RMSE scores')
-
-    for p in ax.patches:
-        ax.annotate(np.round(p.get_height(),decimals=2), 
+def save_RMSE_info(STORAGE_FOLDER, RMSE_info):
+    
+    
+    RMSE_df = pd.DataFrame({'RMSE': RMSE_info})
+    RMSE_df.index = RMSE_info.index
+    RMSE_df.to_csv(STORAGE_FOLDER + 'RMSE_score.csv')
+    
+    axis = RMSE_info.plot(kind='bar', figsize=(10,5), rot=0, title='RMSE scores')
+    for p in axis.patches:
+        axis.annotate(np.round(p.get_height(),decimals=2), 
                     (p.get_x()+p.get_width()/2., p.get_height()), 
                     ha='center', va='center', xytext=(0, 10), 
                     textcoords='offset points', fontsize=14, color='black')
 
-    fig = ax.get_figure()
-    fig.savefig('RMSE.png')
+    fig = axis.get_figure()
+    fig.savefig(STORAGE_FOLDER + 'RMSE.png')
 
 
 # In[79]:
 
 
-#STORAGE_FOLDER = 'output/'
+# STORAGE_FOLDER = 'output/'
 future_steps = 60
 
 
-# In[72]:
+# In[80]:
 
 
 # look_back, hidden_nodes, output_nodes, epochs, batch_size, future_steps
@@ -669,12 +689,12 @@ parameters_SANN = [[12], [3], [500], [20], [future_steps]]
 parameters_LSTM = [[1,2,3,4,5,6,7,8,9,10,11,12,13], [3,4,5,6], [1], [300], [20], [future_steps]]
 parameters_LSTM = [[12], [4], [1], [300], [20], [future_steps]]
 
-#RMSE_info = compare_ANN_methods(rainfall_data, test_rainfall_data, scaler, 
+# RMSE_info = compare_ANN_methods(rainfall_data, test_rainfall_data, scaler, 
 #                    parameters_FNN, parameters_TLNN, parameters_SANN, parameters_LSTM, future_steps, STORAGE_FOLDER)
 
 
-# In[81]:
+# In[76]:
 
 
-#save_RMSE_info(RMSE_info)
+# save_RMSE_info(STORAGE_FOLDER, RMSE_info)
 
