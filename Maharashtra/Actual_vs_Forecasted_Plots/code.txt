@@ -1,0 +1,115 @@
+for date in ordered_date_keys:
+    
+    df = objects_dict[date]
+    
+    num_colors_actual = 15
+    values = df['Actual'].astype(float)
+    cm = plt.get_cmap('rainbow')
+    a_scheme = [cm(i / num_colors_actual) for i in range(num_colors_actual)]
+#     bins = np.linspace(values.min(), values.max(), num_colors_actual)
+    bins = np.linspace(0, 1444, num_colors_actual)
+    df['abin'] = np.array(np.digitize(values, bins) - 1)
+    df.sort_values('abin', ascending=False).head()
+
+    num_colors_forecast = 15
+    values = df['Forecast'].astype(float)
+    cm = plt.get_cmap('rainbow')
+    f_scheme = [cm(i / num_colors_forecast) for i in range(num_colors_forecast)]
+    bins = np.linspace(values.min(), values.max(), num_colors_forecast)
+    bins = np.linspace(0, 1444, num_colors_actual)
+    df['fbin'] = np.array(np.digitize(values, bins) - 1)
+    df.sort_values('fbin', ascending=False).head()
+
+    fig = plt.figure(figsize=(25,15))
+    ax = fig.add_subplot(121)
+
+    map = Basemap(projection='lcc',resolution='l', llcrnrlon=72, 
+                   llcrnrlat=15,urcrnrlon=82,urcrnrlat=22,lat_0=16,lon_0=75.11)
+    map.drawmapboundary(fill_color='white')
+    map.fillcontinents(color='white',lake_color='white')
+    map.readshapefile('gadm36_IND_shp/gadm36_IND_2', 'gadm36_IND_2', drawbounds = False)
+    
+    patches   = []
+    facecolor_array = []
+
+
+    for info, shape in zip(map.gadm36_IND_2_info, map.gadm36_IND_2):
+        if(info['NAME_1'] == 'Maharashtra'):
+            x, y = zip(*shape) 
+            map.plot(x, y, marker=None, color='white')
+
+            district = info['NAME_2']
+            if district not in df.index:
+                color = '#dddddd'
+            else:
+                a_color = a_scheme[int(df.ix[district]['abin'])]
+                patches.append( Polygon(np.array(shape), True))
+                facecolor_array.append(a_color)
+                
+        else:
+            color = '#dddddd'
+            
+    ax.add_collection(PatchCollection(patches, facecolor= facecolor_array, edgecolor='w', linewidths=1., zorder=2))
+    ax.set_title("Actual data for "+str(date))    
+
+    lat = latlon_data['lat'].tolist()
+    lon = latlon_data['lon'].tolist()
+    label_dist = latlon_data['district'].tolist()
+    label_district = latlon_data['district'].tolist()
+
+
+    X,Y = map(lon,lat)
+    ax.scatter(X,Y)
+    for i, (x, y) in enumerate(zip(X, Y), start=0):
+        actual = df.ix[label_district[i]]['Actual'] 
+        ax.annotate(label_dist[i]+"\n"+str(round(actual,2)), (x,y), xytext=(0,0), textcoords='offset points',fontsize=12,color='black')
+    
+    ax_legend = fig.add_axes([0.40, 0.20, 0.3, 0.03], zorder=3)
+    cmap = matplotlib.colors.ListedColormap(scheme)
+    cb = matplotlib.colorbar.ColorbarBase(ax_legend, cmap=cmap, ticks=bins, boundaries=bins, orientation='horizontal')
+    cb.ax.set_xticklabels([str(round(i, 1)) for i in bins])
+    
+    ax = fig.add_subplot(122)
+
+    map = Basemap(projection='lcc',resolution='l', llcrnrlon=72, 
+                   llcrnrlat=15,urcrnrlon=82,urcrnrlat=22,lat_0=16,lon_0=75.11)
+    map.drawmapboundary(fill_color='white')
+    map.fillcontinents(color='white',lake_color='white')
+    map.readshapefile('gadm36_IND_shp/gadm36_IND_2', 'gadm36_IND_2', drawbounds = False)
+    
+    patches   = []
+    facecolor_array = []
+
+    for info, shape in zip(map.gadm36_IND_2_info, map.gadm36_IND_2):
+        if(info['NAME_1'] == 'Maharashtra'):
+            x, y = zip(*shape) 
+            map.plot(x, y, marker=None, color='white')
+
+            district = info['NAME_2']
+            if district not in df.index:
+                color = '#dddddd'
+            else:
+                f_color = f_scheme[int(df.ix[district]['fbin'])]
+                patches.append( Polygon(np.array(shape), True))
+                facecolor_array.append(f_color)
+        else:
+            color = '#dddddd'
+            
+    ax.add_collection(PatchCollection(patches, facecolor = facecolor_array, edgecolor='w', linewidths=1., zorder=2))
+    ax.set_title("Forecast for "+str(date))    
+
+    X,Y = map(lon,lat)
+    ax.scatter(X,Y)
+    for i, (x, y) in enumerate(zip(X, Y), start=0):
+        forecast = df.ix[label_district[i]]['Forecast'] 
+        ax.annotate(label_dist[i]+"\n"+str(round(forecast,2)), (x,y), xytext=(0,0), textcoords='offset points',fontsize=12,color='black')
+        
+    ax_legend = fig.add_axes([0.45, 0.20, 0.3, 0.03], zorder=3)
+    cmap = matplotlib.colors.ListedColormap(scheme)
+    cb = matplotlib.colorbar.ColorbarBase(ax_legend, cmap=cmap, ticks=bins, boundaries=bins, orientation='horizontal')
+    cb.ax.set_xticklabels([str(round(i, 1)) for i in bins])
+    
+    plt.savefig(directory+"/"+date+".png", bbox_inches='tight')
+    plt.show()
+    
+    break
