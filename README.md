@@ -8,3 +8,6 @@
     1. FNN(Feed forward Neural Networks)
     2. TLNN(Time lagged Neural Networks)
     3. SANN(Seasonal Artificial Neural Networks
+
+### [Maharashtra Rainfall Analysis](https://github.com/Abhishekmamidi123/Time-Series-Forecasting/tree/master/Maharashtra)
+- Will be updated soon...
