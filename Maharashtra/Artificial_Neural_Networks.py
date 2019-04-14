@@ -87,16 +87,23 @@ def root_mean_squared_error(y_true, y_pred):
     rmse = np.sqrt(mse)
     return rmse
 
+def symmetric_mean_absolute_percentage_error(y_true, y_pred):
+    smape = 100/len(y_true) * np.sum(2 * np.abs(y_pred - y_true) / (np.abs(y_true) + np.abs(y_pred)))
+    return smape
 
+def correlation_coefficient(y_true, y_pred):
+    corr_coef = np.corrcoef(y_true, y_pred)[0, 1]
+    return corr_coef
+    
 # In[13]:
-
 
 def calculate_performance(y_true, y_pred):
     mse = mean_squared_error(y_true, y_pred)
     mae = mean_absolute_error(y_true, y_pred)
     mape = mean_absolute_percentage_error(y_true, y_pred)
     rmse = root_mean_squared_error(y_true, y_pred)
-    return round(mse, 3), round(mae, 3), round(mape, 3), round(rmse, 3)
+    corr_coef = correlation_coefficient(y_true, y_pred)
+    return round(mse, 3), round(mae, 3), round(mape, 3), round(rmse, 3), round(corr_coef, 3)
 
 
 # In[14]:
@@ -216,14 +223,14 @@ def get_accuracies_FNN(rainfall_data, test_rainfall_data, parameters, scaler):
         model_FNN, forecasted_values_FNN = FNN(rainfall_data, look_back, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler)
         
         y_true = test_rainfall_data.ix[:future_steps].Precipitation
-        mse, mae, mape, rmse = calculate_performance(y_true, forecasted_values_FNN)
+        mse, mae, mape, rmse, corr_coef = calculate_performance(y_true, forecasted_values_FNN)
         
-        info = list(param) + [mse, mae, rmse] + forecasted_values_FNN
+        info = list(param) + [mse, mae, mape, rmse, corr_coef] + forecasted_values_FNN
         information_FNN.append(info)
 
     information_FNN_df = pd.DataFrame(information_FNN)
     indexes = [str(i) for i in list(range(1, future_steps+1))]
-    information_FNN_df.columns = ['look_back', 'hidden_nodes', 'output_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'RMSE'] + indexes
+    information_FNN_df.columns = ['look_back', 'hidden_nodes', 'output_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'MAPE', 'RMSE', 'R'] + indexes
     return information_FNN_df
 
 
@@ -303,14 +310,14 @@ def get_accuracies_TLNN(rainfall_data, test_rainfall_data, parameters, scaler):
         model_TLNN, forecasted_values_TLNN = TLNN(rainfall_data, time_lagged_points, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler)
         
         y_true = test_rainfall_data.ix[:future_steps].Precipitation
-        mse, mae, mape, rmse = calculate_performance(y_true, forecasted_values_TLNN)
+        mse, mae, mape, rmse, corr_coef = calculate_performance(y_true, forecasted_values_TLNN)
         
-        info = list(param) + [mse, mae, rmse] + forecasted_values_TLNN
+        info = list(param) + [mse, mae, mape, rmse, corr_coef] + forecasted_values_TLNN
         information_TLNN.append(info)
 
     information_TLNN_df = pd.DataFrame(information_TLNN)
     indexes = [str(i) for i in list(range(1, future_steps+1))]
-    information_TLNN_df.columns = ['look_back_lags', 'hidden_nodes', 'output_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'RMSE'] + indexes
+    information_TLNN_df.columns = ['look_back_lags', 'hidden_nodes', 'output_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'MAPE', 'RMSE', 'R'] + indexes
     return information_TLNN_df
 
 
@@ -387,14 +394,14 @@ def get_accuracies_SANN(rainfall_data, test_rainfall_data, parameters, scaler):
         model_SANN, forecasted_values_SANN = SANN(rainfall_data, seasonal_period, hidden_nodes, epochs, batch_size, future_steps, scaler)
         
         y_true = test_rainfall_data.ix[:future_steps].Precipitation
-        mse, mae, mape, rmse = calculate_performance(y_true, forecasted_values_SANN)
+        mse, mae, mape, rmse, corr_coef = calculate_performance(y_true, forecasted_values_SANN)
         
-        info = list(param) + [mse, mae, rmse] + forecasted_values_SANN
+        info = list(param) + [mse, mae, mape, rmse, corr_coef] + forecasted_values_SANN
         information_SANN.append(info)
 
     information_SANN_df = pd.DataFrame(information_SANN)
     indexes = [str(i) for i in list(range(1, future_steps+1))]
-    information_SANN_df.columns = ['seasonal_period', 'hidden_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'RMSE'] + indexes
+    information_SANN_df.columns = ['seasonal_period', 'hidden_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'MAPE', 'RMSE', 'R'] + indexes
     return information_SANN_df
 
 
@@ -403,7 +410,8 @@ def get_accuracies_SANN(rainfall_data, test_rainfall_data, parameters, scaler):
 
 def create_LSTM(input_nodes, hidden_nodes, output_nodes):
     model = Sequential()
-    model.add(LSTM(int(hidden_nodes), input_shape=(1, int(input_nodes))))
+#     model.add(LSTM(int(hidden_nodes), input_shape=(1, int(input_nodes))))
+    model.add(LSTM(int(hidden_nodes), input_shape=(int(input_nodes), 1)))
     model.add(Dense(int(output_nodes)))
     model.compile(loss='mean_squared_error', optimizer='adam')
     return model
@@ -430,8 +438,9 @@ def preprocess_LSTM(data, look_back):
 
 def forecast_LSTM(model, input_sequence, future_steps):
     forecasted_values = []
+    print(input_sequence)
     for i in range(future_steps):
-        forecasted_value = model.predict(input_sequence)
+        forecasted_value = model.predict(np.reshape(input_sequence, (1, len(input_sequence[0][0]), 1)))
         if forecasted_value < 0:
             forecasted_value = forecasted_value - forecasted_value
         forecasted_values.append(forecasted_value[0][0])
@@ -445,7 +454,7 @@ def forecast_LSTM(model, input_sequence, future_steps):
 def Long_Short_Term_Memory(data, look_back, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler):
     data = scaler.transform(data)
     X_train, y_train, input_seq_for_test_LSTM = preprocess_LSTM(data, look_back)
-    X_train = np.reshape(X_train, (len(X_train), 1, look_back))
+    X_train = np.reshape(X_train, (len(X_train), look_back, 1))
 
     model_LSTM = create_LSTM(input_nodes=look_back, hidden_nodes=hidden_nodes, output_nodes=output_nodes)
     plot_keras_model(model_LSTM)
@@ -484,14 +493,14 @@ def get_accuracies_LSTM(rainfall_data, test_rainfall_data, parameters, scaler):
         model_LSTM, forecasted_values_LSTM = Long_Short_Term_Memory(rainfall_data, input_nodes, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler)
         
         y_true = test_rainfall_data.ix[:future_steps].Precipitation
-        mse, mae, mape, rmse = calculate_performance(y_true, forecasted_values_LSTM)
+        mse, mae, mape, rmse, corr_coef = calculate_performance(y_true, forecasted_values_LSTM)
         
-        info = list(param) + [mse, mae, rmse] + forecasted_values_LSTM
+        info = list(param) + [mse, mae, mape, rmse, corr_coef] + forecasted_values_LSTM
         information_LSTM.append(info)
 
     information_LSTM_df = pd.DataFrame(information_LSTM)
     indexes = [str(i) for i in list(range(1, future_steps+1))]
-    information_LSTM_df.columns = ['look_back', 'hidden_nodes', 'output_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'RMSE'] + indexes
+    information_LSTM_df.columns = ['look_back', 'hidden_nodes', 'output_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'MAPE', 'RMSE', 'R'] + indexes
     return information_LSTM_df
 
 
@@ -597,6 +606,9 @@ def analyze_results(data_frame, test_rainfall_data, name, STORAGE_FOLDER, flag=F
 
 def best_of_all(list_of_methods):
     RMSE_values = [x.RMSE for x in list_of_methods]
+    MAE_values = [x.MAE for x in list_of_methods]
+    R_values = [x.R for x in list_of_methods]
+    
     index = np.argmin(RMSE_values)
     if (index == 0):
         name = 'FNN'
@@ -612,9 +624,11 @@ def best_of_all(list_of_methods):
     
     names = ['FNN', 'TLNN', 'SANN', 'LSTM']
     RMSE_info = pd.Series(RMSE_values, index=names)
+    MAE_info = pd.Series(MAE_values, index=names)
+    R_info = pd.Series(R_values, index=names)
     
     print('Overall Best method on this data is ' + name)
-    return index, name, RMSE_info
+    return index, name, RMSE_info, MAE_info, R_info
 
 
 # In[49]:
@@ -637,18 +651,18 @@ def compare_ANN_methods(rainfall_data, test_rainfall_data, scaler, parameters_FN
     
     list_of_methods = [optimized_params_FNN, optimized_params_TLNN, optimized_params_SANN, optimized_params_LSTM]
     information = [information_FNN_df, information_TLNN_df, information_SANN_df, information_LSTM_df]
-    index, name, RMSE_info = best_of_all(list_of_methods)
+    index, name, RMSE_info, MAE_info, R_info = best_of_all(list_of_methods)
     best_optimized_params = analyze_results(information[index], test_rainfall_data, name, STORAGE_FOLDER, True)
-    return RMSE_info
+    return RMSE_info, MAE_info, R_info
 
 
 # In[69]:
 
 
-def save_RMSE_info(STORAGE_FOLDER, RMSE_info):
+def save_RMSE_info(STORAGE_FOLDER, RMSE_info, MAE_info, R_info):
     
     
-    RMSE_df = pd.DataFrame({'RMSE': RMSE_info})
+    RMSE_df = pd.DataFrame({'RMSE': RMSE_info, 'MAE': MAE_info, 'R': R_info})
     RMSE_df.index = RMSE_info.index
     RMSE_df.to_csv(STORAGE_FOLDER + 'RMSE_score.csv')
     
