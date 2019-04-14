@@ -15,7 +15,7 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 import math
 from keras.models import Sequential
 from keras.layers import Dense
-from keras.layers import LSTM
+from keras.layers import SimpleRNN, LSTM
 from keras.layers import Flatten
 from keras.layers.convolutional import Conv1D
 from keras.layers.convolutional import MaxPooling1D
@@ -404,9 +404,105 @@ def get_accuracies_SANN(rainfall_data, test_rainfall_data, parameters, scaler):
     information_SANN_df.columns = ['seasonal_period', 'hidden_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'MAPE', 'RMSE', 'R'] + indexes
     return information_SANN_df
 
+# ===============
+
+def create_RNN(input_nodes, hidden_nodes, output_nodes):
+    model = Sequential()
+    model.add(SimpleRNN(int(hidden_nodes), input_shape=(int(input_nodes), 1)))
+    model.add(Dense(int(output_nodes)))
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    return model
+
+
+# In[32]:
+
+
+def preprocess_RNN(data, look_back):
+    data = np.array(data)[:, 0]
+    X_train = []
+    y_train = []
+    for i in range(data.shape[0]-look_back):
+        x = data[i:look_back+i][::-1]
+        y = data[look_back+i]
+        X_train.append(list(x))
+        y_train.append(y)
+    input_seq_for_test = data[i+1:look_back+i+1][::-1]
+    return X_train, y_train, input_seq_for_test
+
+
+# In[33]:
+
+
+def forecast_RNN(model, input_sequence, future_steps):
+    forecasted_values = []
+    print(input_sequence)
+    for i in range(future_steps):
+        forecasted_value = model.predict(np.reshape(input_sequence, (1, len(input_sequence[0][0]), 1)))
+        if forecasted_value < 0:
+            forecasted_value = forecasted_value - forecasted_value
+        forecasted_values.append(forecasted_value[0][0])
+        input_sequence[0][0] = np.append(forecasted_value, input_sequence[0][0][:-1])
+    return forecasted_values
+
+
+# In[34]:
+
+
+def Recurrent_Neural_Network(data, look_back, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler):
+    data = scaler.transform(data)
+    X_train, y_train, input_seq_for_test_RNN = preprocess_RNN(data, look_back)
+    X_train = np.reshape(X_train, (len(X_train), look_back, 1))
+
+    model_RNN = create_RNN(input_nodes=look_back, hidden_nodes=hidden_nodes, output_nodes=output_nodes)
+    plot_keras_model(model_RNN)
+    model_RNN = train_model(model_RNN, X_train, y_train, epochs, batch_size)
+
+    input_seq_for_test_RNN = np.reshape(input_seq_for_test_RNN, (1, 1, len(input_seq_for_test_RNN)))
+    forecasted_values_RNN = forecast_RNN(model_RNN, input_sequence=input_seq_for_test_RNN, future_steps=future_steps)
+    forecasted_values_RNN = list(scaler.inverse_transform([forecasted_values_RNN])[0])
+    print(forecasted_values_RNN)
+    return model_RNN, forecasted_values_RNN
+
+
+# In[35]:
+
+
+def get_accuracies_RNN(rainfall_data, test_rainfall_data, parameters, scaler):
+    combination_of_params = get_combinations(parameters)
+    information_RNN = []
+    iterator = 0
+    print('RNN - Number of combinations: ' + str(len(combination_of_params)))
+    
+    for param in combination_of_params:
+        if (iterator+1) != len(combination_of_params):
+            print(iterator+1, end=' -> ')
+        else:
+            print(iterator+1)
+        iterator = iterator+1
+
+        input_nodes = param[0]
+        hidden_nodes = param[1]
+        output_nodes = param[2]
+        epochs = param[3]
+        batch_size = param[4]
+        future_steps = param[5]
+
+        model_RNN, forecasted_values_RNN = Recurrent_Neural_Network(rainfall_data, input_nodes, hidden_nodes, output_nodes, epochs, batch_size, future_steps, scaler)
+        
+        y_true = test_rainfall_data.ix[:future_steps].Precipitation
+        mse, mae, mape, rmse, corr_coef = calculate_performance(y_true, forecasted_values_RNN)
+        
+        info = list(param) + [mse, mae, mape, rmse, corr_coef] + forecasted_values_RNN
+        information_RNN.append(info)
+
+    information_RNN_df = pd.DataFrame(information_RNN)
+    indexes = [str(i) for i in list(range(1, future_steps+1))]
+    information_RNN_df.columns = ['look_back', 'hidden_nodes', 'output_nodes', 'epochs', 'batch_size', 'future_steps', 'MSE', 'MAE', 'MAPE', 'RMSE', 'R'] + indexes
+    return information_RNN_df
+
+# ===============
 
 # In[31]:
-
 
 def create_LSTM(input_nodes, hidden_nodes, output_nodes):
     model = Sequential()
@@ -522,6 +618,13 @@ def analyze_results(data_frame, test_rainfall_data, name, STORAGE_FOLDER, flag=F
         print('Input nodes(p): ' + str(optimized_params.look_back))
         print('Hidden nodes: ' + str(optimized_params.hidden_nodes))
         print('Output nodes: ' + str(optimized_params.output_nodes))
+    elif (name == 'RNN'):
+        model = create_RNN(optimized_params.look_back,
+                            optimized_params.hidden_nodes,
+                            optimized_params.output_nodes)
+        print('Input nodes(s): ' + str(optimized_params.look_back))
+        print('Hidden nodes: ' + str(optimized_params.hidden_nodes))
+        print('Output nodes: ' + str(optimized_params.output_nodes))
     elif (name == 'LSTM'):
         model = create_LSTM(optimized_params.look_back,
                             optimized_params.hidden_nodes,
@@ -617,12 +720,14 @@ def best_of_all(list_of_methods):
     elif (index == 2):
         name = 'SANN'
     elif (index == 3):
+        name = 'RNN'
+    elif (index == 4):
         name = 'LSTM'
     else:
         name = 'CNN'
     print(RMSE_values)
     
-    names = ['FNN', 'TLNN', 'SANN', 'LSTM']
+    names = ['FNN', 'TLNN', 'SANN', 'RNN', 'LSTM']
     RMSE_info = pd.Series(RMSE_values, index=names)
     MAE_info = pd.Series(MAE_values, index=names)
     R_info = pd.Series(R_values, index=names)
@@ -635,7 +740,7 @@ def best_of_all(list_of_methods):
 
 
 def compare_ANN_methods(rainfall_data, test_rainfall_data, scaler, parameters_FNN, parameters_TLNN, 
-                        parameters_SANN, parameters_LSTM, future_steps, STORAGE_FOLDER):
+                        parameters_SANN, parameters_RNN, parameters_LSTM, future_steps, STORAGE_FOLDER):
     
     information_FNN_df = get_accuracies_FNN(rainfall_data, test_rainfall_data, parameters_FNN, scaler)
     optimized_params_FNN = analyze_results(information_FNN_df, test_rainfall_data, 'FNN', STORAGE_FOLDER)
@@ -646,11 +751,14 @@ def compare_ANN_methods(rainfall_data, test_rainfall_data, scaler, parameters_FN
     information_SANN_df = get_accuracies_SANN(rainfall_data, test_rainfall_data, parameters_SANN, scaler)
     optimized_params_SANN = analyze_results(information_SANN_df, test_rainfall_data, 'SANN', STORAGE_FOLDER)
     
+    information_RNN_df = get_accuracies_RNN(rainfall_data, test_rainfall_data, parameters_RNN, scaler)
+    optimized_params_RNN = analyze_results(information_RNN_df, test_rainfall_data, 'RNN', STORAGE_FOLDER)
+    
     information_LSTM_df = get_accuracies_LSTM(rainfall_data, test_rainfall_data, parameters_LSTM, scaler)
     optimized_params_LSTM = analyze_results(information_LSTM_df, test_rainfall_data, 'LSTM', STORAGE_FOLDER)    
     
-    list_of_methods = [optimized_params_FNN, optimized_params_TLNN, optimized_params_SANN, optimized_params_LSTM]
-    information = [information_FNN_df, information_TLNN_df, information_SANN_df, information_LSTM_df]
+    list_of_methods = [optimized_params_FNN, optimized_params_TLNN, optimized_params_SANN, optimized_params_RNN, optimized_params_LSTM]
+    information = [information_FNN_df, information_TLNN_df, information_SANN_df, information_RNN_df, information_LSTM_df]
     index, name, RMSE_info, MAE_info, R_info = best_of_all(list_of_methods)
     best_optimized_params = analyze_results(information[index], test_rainfall_data, name, STORAGE_FOLDER, True)
     return RMSE_info, MAE_info, R_info
@@ -660,7 +768,6 @@ def compare_ANN_methods(rainfall_data, test_rainfall_data, scaler, parameters_FN
 
 
 def save_RMSE_info(STORAGE_FOLDER, RMSE_info, MAE_info, R_info):
-    
     
     RMSE_df = pd.DataFrame({'RMSE': RMSE_info, 'MAE': MAE_info, 'R': R_info})
     RMSE_df.index = RMSE_info.index
@@ -698,6 +805,10 @@ parameters_TLNN = [[[1,2,3,4,5,6,10,11,12]], [4], [1], [300], [20], [future_step
 # seasonal_period, hidden_nodes, epochs, batch_size, future_steps
 parameters_SANN = [[12], [3,4,5,6,7,8,9,10], [500], [20], [future_steps]]
 parameters_SANN = [[12], [3], [500], [20], [future_steps]]
+
+# look_back, hidden_nodes, output_nodes, epochs, batch_size, future_steps
+parameters_RNN = [[1,2,3,4,5,6,7,8,9,10,11,12,13], [3,4,5,6], [1], [300], [20], [future_steps]]
+parameters_RNN = [[12], [4], [1], [300], [20], [future_steps]]
 
 # look_back, hidden_nodes, output_nodes, epochs, batch_size, future_steps
 parameters_LSTM = [[1,2,3,4,5,6,7,8,9,10,11,12,13], [3,4,5,6], [1], [300], [20], [future_steps]]
